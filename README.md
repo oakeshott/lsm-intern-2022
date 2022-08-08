@@ -19,9 +19,16 @@ pip install -r requirements.txt
 
 ## サンプルプログラム
 
-- `jupyter/mlp-example.ipynb`: DNNを利用した障害分類
-- `jupyter/gcn-example.ipynb`: GNNを利用した障害分類
+- `jupyter/mlp-example.ipynb`: DNNを利用した障害分類 (jupyter版)
+- `jupyter/gcn-example.ipynb`: GNNを利用した障害分類 (jupyter版)
+- `mlp.py`
+- `gnn.py`
 
-```
+```bash
 jupyter notebook
+```
+
+```bash
+python mlp.py --train --test
+python gnn.py --train --test
 ```
