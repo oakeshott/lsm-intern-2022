@@ -11,6 +11,7 @@ import random
 import numpy as np
 import os
 import joblib
+import argparse
 from model import MLPClassifier
 
 class Preprocessing:
@@ -123,6 +124,7 @@ class Environment:
         val_dataset   = Subset(dataset, val_indices)
         val_size      = len(val_dataset)
         print(f'train size : {train_size} val size: {val_size}')
+
         train_dataloader = DataLoader(train_dataset, batch_size=self.batchsize)
         val_dataloader   = DataLoader(val_dataset, batch_size=val_size)
 
@@ -178,12 +180,10 @@ class Environment:
                 torch.save(model.state_dict(), f"./{self.model_dir}/mlp_{epoch}.mdl")
 
     def test(self, dataset_path):
-        model_paths = os.listdirs(self.model_dir)
-        transformer = Preprocessing(is_train=False)
-        dataset = NetworkMetricsDataset(dataset_path, metrics, self.device, transformer)
+        model_paths = os.listdir(self.model_dir)
 
         transformer = Preprocessing(is_train=False)
-        dataset = NetworkMetricsDataset(path, metrics, self.device, transformer)
+        dataset = NetworkMetricsDataset(dataset_path, self.metrics, self.device, transformer)
 
         input_dim = list(dataset[0][0].shape)[-1]
         output_dim = len(self.events.keys())
@@ -193,7 +193,7 @@ class Environment:
         test_data = test_data.float().to(self.device)
         test_label = test_label.long().to(self.device).view(-1)
 
-        for model_path in model_paths:
+        for model_path in sorted(model_paths):
             model_path = os.path.join(self.model_dir, model_path)
             model = MLPClassifier(input_dim, output_dim).to(self.device)
             model.load_state_dict(torch.load(model_path))
@@ -224,11 +224,16 @@ def main():
                     help='seed')
     args = parser.parse_args()
 
+    model_dir = args.model_dir
+    seed      = args.seed
+    batchsize = args.batchsize
+    max_epoch = args.max_epoch
+
     if args.train:
         dataset_path = 'dataset/train'
         env = Environment(model_dir, max_epoch, batchsize, seed)
         env.train(dataset_path)
-    elif args.test:
+    if args.test:
         dataset_path = 'dataset/test'
         env = Environment(model_dir, max_epoch, batchsize, seed)
         env.test(dataset_path)

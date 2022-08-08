@@ -11,39 +11,37 @@ import random
 import numpy as np
 import os
 import joblib
+import argparse
 from torch_geometric.data import Dataset, InMemoryDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils import from_networkx, train_test_split_edges
-from torch_geometric.nn import global_add_pool, GCNConv
 import networkx as nx
 from model import GCNClassifier
 
-
-class NetworkMetricsWithTopologyDataset(InMemoryDataset):
+def collate_fn(batch):
+    print(len(batch))
+    print(type(batch))
+class NetworkMetricsWithTopologyDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
-#         self.data_dir = "../dataset/train/network"
-#         self.processed_dir = '/tmp/'
+
     @property
     def raw_file_names(self):
         return [filename for filename in sorted(os.listdir(self.raw_dir))]
+
     @property
     def processed_file_names(self):
-#         data_size = 5969
-#         data_size = 5333
-#         return [f'data_{i}.pt' for i in range(data_size)]
-        return [i  for i in sorted(os.listdir(self.processed_dir)) if 'data' in i]
+        return [i for i in sorted(os.listdir(self.processed_dir)) if 'data' in i]
 
     def process(self):
         idx = 0
         for raw_path in self.raw_paths:
-            # Read data from `raw_path`.
             g = nx.read_gpickle(raw_path)
             for n in g.nodes():
                 label = g.nodes()[n]['label']
                 del g.nodes()[n]['label']
             data = from_networkx(g)
-            data.y =  torch.tensor(label)
+            data.y = torch.tensor(label)
             data.num_nodes = len(g.nodes())
             data.edge_attr = []
             if self.pre_filter is not None and not self.pre_filter(data):
@@ -85,6 +83,7 @@ class Environment:
 
     def train(self, dataset_path):
         dataset = NetworkMetricsWithTopologyDataset(dataset_path)
+        # dataset = [d for d in dataset]
 
         labels = [dataset[i].y for i in range(len(dataset))]
         train_indices, val_indices = train_test_split(
@@ -95,22 +94,24 @@ class Environment:
             )
 
         train_dataset = dataset[train_indices]
+        # train_dataset = [dataset[i] for i in range(len(dataset)) if i in train_indices]
         train_size    = len(train_dataset)
         val_dataset   = dataset[val_indices]
+        # val_dataset = [dataset[i] for i in range(len(dataset)) if i in val_indices]
         val_size      = len(val_dataset)
+        print(f'train size : {train_size} val size: {val_size}')
 
-        train_dataloader = DataLoader(train_dataset, batch_size=self.batchsize)
-        val_dataloader = DataLoader(val_dataset, batch_size=val_size)
-
+        train_dataloader = DataLoader(train_dataset, batch_size=self.batchsize, shuffle=True, collate_fn=collate_fn)
+        val_dataloader   = DataLoader(val_dataset, batch_size=val_size, collate_fn=collate_fn)
 
         input_dim = train_dataset[0].x.shape[-1]
         output_dim = len(self.events.keys())
-        model =GCNClassifier(input_dim, output_dim).to(self.device)
+
+        model         = GCNClassifier(input_dim, output_dim).to(self.device)
         loss_function = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+        optimizer     = optim.Adam(model.parameters(), lr=1e-3)
 
-
-        val_data = iter(val_dataloader).next()
+        val_data = next(iter(val_dataloader))
         val_batch = val_data.batch.to(self.device)
         val_edge_index = val_data.edge_index.to(self.device)
         val_edge_attr = None
@@ -160,9 +161,9 @@ class Environment:
             if epoch % 10 == 0:
                 torch.save(model.state_dict(), f"./{self.model_dir}/gcn_{epoch}.mdl")
 
-    def train(self, dataset_path):
-        model_paths = os.listdirs(self.model_dir)
-        dataset = NetworkMetricsWithTopologyDataset(path)
+    def test(self, dataset_path):
+        model_paths = os.listdir(self.model_dir)
+        dataset = NetworkMetricsWithTopologyDataset(dataset_path)
 
         input_dim = dataset[0].x.shape[-1]
         output_dim = len(self.events.keys())
@@ -174,7 +175,7 @@ class Environment:
         batch = test_data.batch.to(self.device)
         edge_attr = None
         test_label = test_data.y.long().to(self.device).view(-1)
-        for model_path in model_paths:
+        for model_path in sorted(model_paths):
             model_path = os.path.join(self.model_dir, model_path)
             model = GCNClassifier(input_dim, output_dim).to(self.device)
             model.load_state_dict(torch.load(model_path))
@@ -195,7 +196,7 @@ def main():
                     help='is train mode')
     parser.add_argument('--test', action="store_true",
                     help='is test mode')
-    parser.add_argument('--model-dir', default="models/mlp",
+    parser.add_argument('--model-dir', default="models/gcn",
                     help='model dir')
     parser.add_argument('--max-epoch', type=int, default=100,
                     help='max-epoch')
@@ -205,11 +206,16 @@ def main():
                     help='seed')
     args = parser.parse_args()
 
+    model_dir = args.model_dir
+    seed      = args.seed
+    batchsize = args.batchsize
+    max_epoch = args.max_epoch
+
     if args.train:
         dataset_path = 'dataset/train/network'
         env = Environment(model_dir, max_epoch, batchsize, seed)
         env.train(dataset_path)
-    elif args.test:
+    if args.test:
         dataset_path = 'dataset/test/network'
         env = Environment(model_dir, max_epoch, batchsize, seed)
         env.test(dataset_path)

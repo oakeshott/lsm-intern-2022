@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch_geometric.nn import global_add_pool, GCNConv
 
 class MLPClassifier(nn.Module):
     def __init__(self, input_dim, output_dim):
