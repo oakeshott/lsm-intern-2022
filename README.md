@@ -1,10 +1,11 @@
 # lsm-intern-2022
 
-
 # 準備
+
 ```bash
 git clone git@github.com:oakeshott/lsm-intern-2022.git
 ```
+
 ## 要件
 
 - Python 3.8.6
@@ -19,14 +20,13 @@ pip install -r requirements.txt
 
 ## サンプルプログラム
 
-- `jupyter/mlp-example.ipynb`: DNNを利用した障害分類 (jupyter版)
-- `jupyter/gcn-example.ipynb`: GNNを利用した障害分類 (jupyter版)
-- `mlp.py`
-- `gnn.py`
+- `jupyter/mlp-example.ipynb`: [DNNを利用した障害分類 (jupyter版)](jupyter/mlp-example.ipynb)
+- `jupyter/gcn-example.ipynb`: [GNNを利用した障害分類 (jupyter版)](jupyter/gnn-example.ipynb)
+- `mlp.py`: [DNNを利用した障害分類](mlp.py)
+- `gnn.py`: [GNNを利用した障害分類](gnn.py)
 
-```bash
-jupyter notebook
-```
+
+## サンプルプログラムの実行
 
 ```bash
 python mlp.py --train --test
